@@ -160,25 +160,55 @@
         var UPSTREAM_HOST = "vps.kodub.com";
 
         var NativeXHR = window.XMLHttpRequest;
-        function PatchedXHR() { this._xhr = new NativeXHR(); }
-        PatchedXHR.prototype = Object.create(NativeXHR.prototype);
 
-        // Forward every standard event/property from the inner XHR to the outer
-        ["onreadystatechange","onload","onerror","onprogress","ontimeout","onabort",
-         "onloadstart","onloadend"].forEach(function(ev) {
-            Object.defineProperty(PatchedXHR.prototype, ev, {
-                get: function()  { return this._xhr[ev]; },
-                set: function(v) { this._xhr[ev] = v; }
+        function PatchedXHR() {
+            var self = this;
+            var inner = new NativeXHR();
+            this._xhr = inner;
+            this._listeners = {};
+
+            // Relay on* handler properties
+            ["onreadystatechange","onload","onerror","onprogress",
+             "ontimeout","onabort","onloadstart","onloadend"].forEach(function(ev) {
+                Object.defineProperty(self, ev, {
+                    get: function()  { return inner[ev]; },
+                    set: function(v) { inner[ev] = v; }
+                });
             });
-        });
-        ["readyState","status","statusText","responseText","response",
-         "responseType","responseURL","responseXML","timeout","withCredentials",
-         "upload","UNSENT","OPENED","HEADERS_RECEIVED","LOADING","DONE"].forEach(function(p) {
-            Object.defineProperty(PatchedXHR.prototype, p, {
-                get: function()  { return this._xhr[p]; },
-                set: function(v) { this._xhr[p] = v; }
+
+            // Relay read-only / read-write properties
+            ["readyState","status","statusText","responseText","response",
+             "responseURL","responseXML","UNSENT","OPENED","HEADERS_RECEIVED",
+             "LOADING","DONE"].forEach(function(p) {
+                Object.defineProperty(self, p, {
+                    get: function() { return inner[p]; },
+                    enumerable: true, configurable: true
+                });
             });
-        });
+            ["responseType","timeout","withCredentials"].forEach(function(p) {
+                Object.defineProperty(self, p, {
+                    get: function()  { return inner[p]; },
+                    set: function(v) { inner[p] = v; },
+                    enumerable: true, configurable: true
+                });
+            });
+
+            // upload proxy
+            Object.defineProperty(self, "upload", {
+                get: function() { return inner.upload; }
+            });
+        }
+
+        // addEventListener/removeEventListener relay to the inner XHR
+        PatchedXHR.prototype.addEventListener = function(type, fn, opts) {
+            this._xhr.addEventListener(type, fn, opts);
+        };
+        PatchedXHR.prototype.removeEventListener = function(type, fn, opts) {
+            this._xhr.removeEventListener(type, fn, opts);
+        };
+        PatchedXHR.prototype.dispatchEvent = function(e) {
+            return this._xhr.dispatchEvent(e);
+        };
 
         PatchedXHR.prototype.open = function(method, url) {
             var rewritten = url;
@@ -189,15 +219,15 @@
                 }
             } catch(e) {}
             return this._xhr.open.call(this._xhr, method, rewritten,
-                arguments[2] !== false,   // async (default true)
+                arguments[2] !== false,
                 arguments[3], arguments[4]);
         };
-        PatchedXHR.prototype.send            = function(b) { return this._xhr.send(b); };
-        PatchedXHR.prototype.setRequestHeader= function(h,v){ return this._xhr.setRequestHeader(h,v); };
-        PatchedXHR.prototype.getResponseHeader     = function(h)  { return this._xhr.getResponseHeader(h); };
-        PatchedXHR.prototype.getAllResponseHeaders  = function()   { return this._xhr.getAllResponseHeaders(); };
-        PatchedXHR.prototype.abort                  = function()   { return this._xhr.abort(); };
-        PatchedXHR.prototype.overrideMimeType        = function(m) { return this._xhr.overrideMimeType(m); };
+        PatchedXHR.prototype.send                = function(b)   { return this._xhr.send(b); };
+        PatchedXHR.prototype.setRequestHeader    = function(h,v) { return this._xhr.setRequestHeader(h,v); };
+        PatchedXHR.prototype.getResponseHeader   = function(h)   { return this._xhr.getResponseHeader(h); };
+        PatchedXHR.prototype.getAllResponseHeaders= function()    { return this._xhr.getAllResponseHeaders(); };
+        PatchedXHR.prototype.abort               = function()    { return this._xhr.abort(); };
+        PatchedXHR.prototype.overrideMimeType    = function(m)   { return this._xhr.overrideMimeType(m); };
 
         window.XMLHttpRequest = PatchedXHR;
     })();
