@@ -22,9 +22,8 @@
     #tas-panel.visible { display: flex; }
 
     /* Scoped TAS tool styles (originally tas-tool.css) */
-#tas-panel{margin:0;font-family:sans-serif;background:#1e1e28;color:#eee;height:100vh;flex-direction:column}
-#tas-panel header{padding:12px 16px;border-bottom:1px solid #2a2a3a}
-#tas-panel main{padding:16px;display:grid;grid-template-columns:240px 1fr;grid-template-rows:140px 1fr auto auto;gap:12px;flex:1 1 auto;min-height:0}
+#tas-panel{margin:0;font-family:sans-serif;background:#1e1e28;color:#eee;flex-direction:column;position:fixed;top:40px;left:40px;width:680px;height:520px;min-width:340px;min-height:260px;border-radius:10px;border:1px solid #3a3a4a;box-shadow:0 8px 40px rgba(0,0,0,.7);overflow:hidden;resize:both;z-index:10000}#tas-panel header{padding:12px 16px;border-bottom:1px solid #2a2a3a;cursor:move;user-select:none;flex-shrink:0}
+#tas-panel main{padding:16px;display:grid;grid-template-columns:240px 1fr;grid-template-rows:140px 1fr auto auto;gap:12px;flex:1 1 auto;min-height:0;overflow:auto}
 #tas-panel label{font-size:12px;color:#bbb}
 #tas-panel textarea{width:100%;height:180px;background:#0f0f17;color:#eee;border:1px solid #2a2a3a;border-radius:6px;padding:10px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:12px;resize:vertical}
 #tas-panel .decoded-editor{width:100%;height:180px;background:#0f0f17;color:#eee;border:1px solid #2a2a3a;border-radius:6px;padding:10px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:12px;resize:vertical;overflow-y:auto;white-space:pre-wrap;}
@@ -542,6 +541,40 @@
         // ── Close button ──────────────────────────────────────────────────────
         var closeBtn = document.getElementById("tas-panel-close");
         if (closeBtn) closeBtn.addEventListener("click", closePanel);
+
+        // ── Drag to move ──────────────────────────────────────────────────────
+        (function () {
+            var panel  = document.getElementById("tas-panel");
+            var header = panel ? panel.querySelector("header") : null;
+            if (!panel || !header) return;
+
+            var startX, startY, startL, startT;
+
+            header.addEventListener("mousedown", function (e) {
+                if (e.target.tagName === "BUTTON") return; // don't drag on close btn
+                e.preventDefault();
+                var rect = panel.getBoundingClientRect();
+                startX = e.clientX;
+                startY = e.clientY;
+                startL = rect.left;
+                startT = rect.top;
+
+                function onMove(e) {
+                    var dx = e.clientX - startX;
+                    var dy = e.clientY - startY;
+                    var newL = Math.max(0, Math.min(window.innerWidth  - panel.offsetWidth,  startL + dx));
+                    var newT = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, startT + dy));
+                    panel.style.left = newL + "px";
+                    panel.style.top  = newT + "px";
+                }
+                function onUp() {
+                    document.removeEventListener("mousemove", onMove);
+                    document.removeEventListener("mouseup",   onUp);
+                }
+                document.addEventListener("mousemove", onMove);
+                document.addEventListener("mouseup",   onUp);
+            });
+        })();
 
         // ── F11 / Alt+Enter fullscreen ────────────────────────────────────────
         window.addEventListener("keydown", function(e) {
