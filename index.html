@@ -152,9 +152,11 @@
     <!-- ════════════════════════════════════════════════ -->
 
     <script>
-
+    // ── CORS proxy shim ──────────────────────────────────────────────────────
+    // Rewrites XHR requests to vps.kodub.com through a Cloudflare Worker proxy.
+    // Deploy cors-proxy-worker.js to Cloudflare Workers and update PROXY_BASE.
     (function () {
-        var PROXY_BASE   = "https://soft-truth-6e93.missonance.workers.dev/";
+        var PROXY_BASE   = "https://soft-truth-6e93.missonance.workers.dev";
         var UPSTREAM_HOST = "vps.kodub.com";
 
         var NativeXHR = window.XMLHttpRequest;
@@ -183,7 +185,7 @@
             try {
                 var parsed = new URL(url, location.href);
                 if (parsed.hostname === UPSTREAM_HOST) {
-                    rewritten = PROXY_BASE + parsed.pathname + parsed.search;
+                    rewritten = PROXY_BASE.replace(/\/$/, "") + parsed.pathname + parsed.search;
                 }
             } catch(e) {}
             return this._xhr.open.call(this._xhr, method, rewritten,
