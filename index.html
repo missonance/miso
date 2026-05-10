@@ -526,16 +526,20 @@
             onTasToolApply: function(fn) {
                 _applyListeners.push(function(recordingObj) {
                     try { fn(recordingObj); } catch(e) {}
-                    // Re-simulate the ghost immediately so changes are visible
-                    // without needing to start a new run.
                     setTimeout(function() {
                         try {
-                            var proxy = window.__tasGhostProxy;
-                            if (!proxy || !proxy.rebuildGhost) return;
-                            var idx = proxy.getSelIdx ? proxy.getSelIdx() : 0;
-                            proxy.rebuildGhost(idx, recordingObj);
-                        } catch(e) { console.error('[TAS] apply rebuild error:', e); }
-                    }, 0);
+                            // Simulate pressing Backspace (VehicleStartReset) to restart
+                            // the run with the new recording, exactly like the user would.
+                            var event = new KeyboardEvent('keydown', {
+                                key: 'Backspace',
+                                code: 'Backspace',
+                                keyCode: 8,
+                                bubbles: true,
+                                cancelable: true
+                            });
+                            document.dispatchEvent(event);
+                        } catch(e) { console.error('[TAS] apply reset error:', e); }
+                    }, 50);
                 });
             },
 
