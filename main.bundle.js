@@ -56416,6 +56416,17 @@
             console.error('[TAS] rebuildGhost error:', e);
           }
         },
+        startNewRun: function() {
+          try {
+            var hfFn = C.get(rfInst, hf, 'f');
+            var physEngine = C.get(rfInst, Zp, 'f');
+            var trackData  = C.get(rfInst, tf, 'f');
+            var mountainMgr = C.get(rfInst, nf, 'f');
+            hfFn.call(rfInst, physEngine, trackData, mountainMgr, value.map(function(e) { return e.settings; }));
+          } catch(e) {
+            console.error('[TAS] startNewRun error:', e);
+          }
+        },
       };
       // Signal the TAS patch (attached at page bottom) to create its session.
       // It polls via MutationObserver + attemptSessionFromDom(); a small timeout
