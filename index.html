@@ -524,24 +524,17 @@
 
             onTasToolEncodedUpdate: function(fn) { _encodedUpdateListeners.push(fn); },
             onTasToolApply: function(fn) {
-                // Wrap the bundle's handler: after it sets ghost.settings.recording,
-                // also null ghost.replay so the game re-creates the car immediately
-                // rather than waiting for the next run.
                 _applyListeners.push(function(recordingObj) {
                     try { fn(recordingObj); } catch(e) {}
+                    // Re-simulate the ghost immediately so changes are visible
+                    // without needing to start a new run.
                     setTimeout(function() {
                         try {
                             var proxy = window.__tasGhostProxy;
-                            if (!proxy || !proxy.ghosts) return;
-                            var ghosts = proxy.ghosts;
-                            for (var i = 0; i < ghosts.length; i++) {
-                                var g = ghosts[i];
-                                if (g && g.replay && g.settings &&
-                                    g.settings.recording !== g.replay.recording) {
-                                    g.replay = null;
-                                }
-                            }
-                        } catch(e) {}
+                            if (!proxy || !proxy.rebuildGhost) return;
+                            var idx = proxy.getSelIdx ? proxy.getSelIdx() : 0;
+                            proxy.rebuildGhost(idx, recordingObj);
+                        } catch(e) { console.error('[TAS] apply rebuild error:', e); }
                     }, 0);
                 });
             },
