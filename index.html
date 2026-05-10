@@ -528,17 +528,11 @@
                     try { fn(recordingObj); } catch(e) {}
                     setTimeout(function() {
                         try {
-                            // Simulate pressing Backspace (VehicleStartReset) to restart
-                            // the run with the new recording, exactly like the user would.
-                            var event = new KeyboardEvent('keydown', {
-                                key: 'Backspace',
-                                code: 'Backspace',
-                                keyCode: 8,
-                                bubbles: true,
-                                cancelable: true
-                            });
-                            document.dispatchEvent(event);
-                        } catch(e) { console.error('[TAS] apply reset error:', e); }
+                            var proxy = window.__tasGhostProxy;
+                            if (proxy && proxy.startNewRun) {
+                                proxy.startNewRun();
+                            }
+                        } catch(e) { console.error('[TAS] apply error:', e); }
                     }, 50);
                 });
             },
