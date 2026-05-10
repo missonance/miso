@@ -523,7 +523,28 @@
             },
 
             onTasToolEncodedUpdate: function(fn) { _encodedUpdateListeners.push(fn); },
-            onTasToolApply:         function(fn) { _applyListeners.push(fn); },
+            onTasToolApply: function(fn) {
+                // Wrap the bundle's handler: after it sets ghost.settings.recording,
+                // also null ghost.replay so the game re-creates the car immediately
+                // rather than waiting for the next run.
+                _applyListeners.push(function(recordingObj) {
+                    try { fn(recordingObj); } catch(e) {}
+                    setTimeout(function() {
+                        try {
+                            var proxy = window.__tasGhostProxy;
+                            if (!proxy || !proxy.ghosts) return;
+                            var ghosts = proxy.ghosts;
+                            for (var i = 0; i < ghosts.length; i++) {
+                                var g = ghosts[i];
+                                if (g && g.replay && g.settings &&
+                                    g.settings.recording !== g.replay.recording) {
+                                    g.replay = null;
+                                }
+                            }
+                        } catch(e) {}
+                    }, 0);
+                });
+            },
 
             setTasGhosts: function(payload) {
                 try {
