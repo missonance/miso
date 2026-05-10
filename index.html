@@ -230,6 +230,12 @@
         PatchedXHR.prototype.overrideMimeType    = function(m)   { return this._xhr.overrideMimeType(m); };
 
         window.XMLHttpRequest = PatchedXHR;
+
+        // Copy static constants (DONE=4, LOADING=3, etc.) so that
+        // `XMLHttpRequest.DONE` still resolves correctly after the swap.
+        ["UNSENT","OPENED","HEADERS_RECEIVED","LOADING","DONE"].forEach(function(k) {
+            PatchedXHR[k] = NativeXHR[k];
+        });
     })();
     // ────────────────────────────────────────────────────────────────────────
     
