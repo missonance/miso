@@ -3,6 +3,37 @@
 <head>
     <meta charset="utf-8">
     <base href="https://missonance.github.io/miso/">
+    <script>
+    // ── Expose Recording class (webpack module 927) on window ────────────────
+    // The bundle's onTasToolApply handler scans window for a .deserialize fn.
+    // Module 927 exports the Recording class as .A but it's never on window.
+    // We hook webpackChunk.push so that when module 927 is registered we grab
+    // its export and put it on window.__RecordingClass.
+    (function () {
+        var _orig;
+        function hookChunk(chunk) {
+            var mods = chunk && chunk[1];
+            if (mods && mods[927]) {
+                var origMod = mods[927];
+                mods[927] = function (module, exports, req) {
+                    origMod(module, exports, req);
+                    // exports.A is the Recording class
+                    if (exports && typeof exports.A === 'function' && typeof exports.A.deserialize === 'function') {
+                        window.__RecordingClass = exports.A;
+                    }
+                };
+            }
+        }
+        var arr = self.webpackChunk = self.webpackChunk || [];
+        arr.forEach(hookChunk);
+        _orig = arr.push.bind(arr);
+        arr.push = function (chunk) {
+            hookChunk(chunk);
+            return _orig(chunk);
+        };
+    })();
+    // ────────────────────────────────────────────────────────────────────────
+    </script>
     <link rel="preload" href="forced_square.woff2" as="font" type="font/woff2" crossorigin="anonymous"/>
     <link rel="preload" href="images/logo.svg" as="image" type="image/svg+xml"/>
     <link rel="preload" href="images/discord.svg" as="image" type="image/svg+xml"/>
