@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <base href="https://missonance.github.io/miso/">
     <link rel="preload" href="forced_square.woff2" as="font" type="font/woff2" crossorigin="anonymous"/>
     <link rel="preload" href="images/logo.svg" as="image" type="image/svg+xml"/>
     <link rel="preload" href="images/discord.svg" as="image" type="image/svg+xml"/>
@@ -543,18 +544,46 @@
         if (closeBtn) closeBtn.addEventListener("click", closePanel);
 
         // ── Block game keys while typing in the panel ─────────────────────────
+        // We intercept at window capture (earliest possible) and suppress only
+        // when focus is inside a panel input/textarea/contenteditable.
+        // We do NOT suppress modifier combos (Ctrl/Meta) so TAS shortcuts still work.
         (function () {
             var panel = document.getElementById("tas-panel");
             if (!panel) return;
-            var KEYS = ["keydown", "keyup", "keypress"];
-            KEYS.forEach(function (type) {
-                panel.addEventListener(type, function (e) {
-                    var tag = e.target.tagName;
-                    if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) {
-                        e.stopPropagation();
-                    }
-                }, true); // capture phase so we beat the game's listener
-            });
+
+            // Keys the game uses for driving — block these when typing
+            var GAME_KEYS = new Set([
+                "ArrowUp","ArrowDown","ArrowLeft","ArrowRight",
+                "KeyW","KeyA","KeyS","KeyD","KeyR","KeyZ","Space",
+                "w","a","s","d","r","z"," "
+            ]);
+
+            function panelInputFocused() {
+                var el = document.activeElement;
+                if (!el) return false;
+                var tag = el.tagName;
+                return panel.contains(el) && (
+                    tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable
+                );
+            }
+
+            window.addEventListener("keydown", function (e) {
+                if (!panelInputFocused()) return;
+                // Always let through modifier combos (Ctrl+Z, Ctrl+S, etc.)
+                if (e.ctrlKey || e.metaKey || e.altKey) return;
+                // Block game movement/action keys
+                if (GAME_KEYS.has(e.key) || GAME_KEYS.has(e.code)) {
+                    e.stopPropagation();
+                }
+            }, true);
+
+            window.addEventListener("keyup", function (e) {
+                if (!panelInputFocused()) return;
+                if (e.ctrlKey || e.metaKey || e.altKey) return;
+                if (GAME_KEYS.has(e.key) || GAME_KEYS.has(e.code)) {
+                    e.stopPropagation();
+                }
+            }, true);
         })();
         (function () {
             var panel  = document.getElementById("tas-panel");
