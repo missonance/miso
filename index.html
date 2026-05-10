@@ -152,7 +152,55 @@
     <!-- ════════════════════════════════════════════════ -->
 
     <script>
-    // ── window.electron shim ─────────────────────────────────────────────────
+
+    (function () {
+        var PROXY_BASE   = "https://soft-truth-6e93.missonance.workers.dev/";
+        var UPSTREAM_HOST = "vps.kodub.com";
+
+        var NativeXHR = window.XMLHttpRequest;
+        function PatchedXHR() { this._xhr = new NativeXHR(); }
+        PatchedXHR.prototype = Object.create(NativeXHR.prototype);
+
+        // Forward every standard event/property from the inner XHR to the outer
+        ["onreadystatechange","onload","onerror","onprogress","ontimeout","onabort",
+         "onloadstart","onloadend"].forEach(function(ev) {
+            Object.defineProperty(PatchedXHR.prototype, ev, {
+                get: function()  { return this._xhr[ev]; },
+                set: function(v) { this._xhr[ev] = v; }
+            });
+        });
+        ["readyState","status","statusText","responseText","response",
+         "responseType","responseURL","responseXML","timeout","withCredentials",
+         "upload","UNSENT","OPENED","HEADERS_RECEIVED","LOADING","DONE"].forEach(function(p) {
+            Object.defineProperty(PatchedXHR.prototype, p, {
+                get: function()  { return this._xhr[p]; },
+                set: function(v) { this._xhr[p] = v; }
+            });
+        });
+
+        PatchedXHR.prototype.open = function(method, url) {
+            var rewritten = url;
+            try {
+                var parsed = new URL(url, location.href);
+                if (parsed.hostname === UPSTREAM_HOST) {
+                    rewritten = PROXY_BASE + parsed.pathname + parsed.search;
+                }
+            } catch(e) {}
+            return this._xhr.open.call(this._xhr, method, rewritten,
+                arguments[2] !== false,   // async (default true)
+                arguments[3], arguments[4]);
+        };
+        PatchedXHR.prototype.send            = function(b) { return this._xhr.send(b); };
+        PatchedXHR.prototype.setRequestHeader= function(h,v){ return this._xhr.setRequestHeader(h,v); };
+        PatchedXHR.prototype.getResponseHeader     = function(h)  { return this._xhr.getResponseHeader(h); };
+        PatchedXHR.prototype.getAllResponseHeaders  = function()   { return this._xhr.getAllResponseHeaders(); };
+        PatchedXHR.prototype.abort                  = function()   { return this._xhr.abort(); };
+        PatchedXHR.prototype.overrideMimeType        = function(m) { return this._xhr.overrideMimeType(m); };
+
+        window.XMLHttpRequest = PatchedXHR;
+    })();
+    // ────────────────────────────────────────────────────────────────────────
+    
     // Replaces Electron preload.js + main.js IPC.
     // Everything runs in the same page so calls are direct — no messaging needed.
     (function () {
