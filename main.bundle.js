@@ -56373,6 +56373,49 @@
         getMaxMs:     function() { return Math.round(1e3 * (gf.get(rfInst) || 0)); },
         isPaused:     function() { return !!(pf.get(rfInst)); },
         getCarForIdx: function(i) { return value[i] ? value[i].car : null; },
+        rebuildGhost: function(idx, newRecordingObj) {
+          try {
+            var ghost = value[idx];
+            if (!ghost) return;
+            var physicsEngine = C.get(rfInst, Zp, 'f');
+            var trackData     = C.get(rfInst, tf, 'f');
+            var mountainMgr   = C.get(rfInst, nf, 'f');
+            var maxFrames     = gf.get(rfInst) || 0;
+            var maxTime       = new yt.A(Math.round(maxFrames * 1e3));
+            var startTransform = trackData.getStartTransform();
+            if (!startTransform) return;
+            // Delete the old physics car
+            if (ghost.carId != null) {
+              physicsEngine.deleteCar(ghost.carId);
+              ghost.carId = null;
+            }
+            // Clear the old replay frames and update the recording
+            ghost.replay = new Ft();
+            ghost.settings.recording = newRecordingObj;
+            // Re-simulate with the new recording
+            var newCar = physicsEngine.createCar(
+              startTransform,
+              mountainMgr.getMountainVertices(),
+              mountainMgr.getMountainOffset(),
+              trackData,
+              newRecordingObj,
+              function(state) {
+                ghost.replay.push(state);
+                if (ghost.carId != null && state.frames >= Math.round(maxFrames * 1e3)) {
+                  physicsEngine.deleteCar(ghost.carId);
+                  ghost.carId = null;
+                }
+              }
+            );
+            ghost.replay.push(newCar.carState);
+            physicsEngine.startCar(newCar.id, maxTime.clone());
+            ghost.carId = newCar.id;
+            // Rewind playback to start so the new replay is visible immediately
+            ff.set(rfInst, 0);
+          } catch(e) {
+            console.error('[TAS] rebuildGhost error:', e);
+          }
+        },
       };
       // Signal the TAS patch (attached at page bottom) to create its session.
       // It polls via MutationObserver + attemptSessionFromDom(); a small timeout
