@@ -542,7 +542,20 @@
         var closeBtn = document.getElementById("tas-panel-close");
         if (closeBtn) closeBtn.addEventListener("click", closePanel);
 
-        // ── Drag to move ──────────────────────────────────────────────────────
+        // ── Block game keys while typing in the panel ─────────────────────────
+        (function () {
+            var panel = document.getElementById("tas-panel");
+            if (!panel) return;
+            var KEYS = ["keydown", "keyup", "keypress"];
+            KEYS.forEach(function (type) {
+                panel.addEventListener(type, function (e) {
+                    var tag = e.target.tagName;
+                    if (tag === "INPUT" || tag === "TEXTAREA" || e.target.isContentEditable) {
+                        e.stopPropagation();
+                    }
+                }, true); // capture phase so we beat the game's listener
+            });
+        })();
         (function () {
             var panel  = document.getElementById("tas-panel");
             var header = panel ? panel.querySelector("header") : null;
