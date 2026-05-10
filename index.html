@@ -552,11 +552,6 @@
             if (!panel) return;
 
             // Keys the game uses for driving — block these when typing
-            var GAME_KEYS = new Set([
-                "ArrowUp","ArrowDown","ArrowLeft","ArrowRight",
-                "KeyW","KeyA","KeyS","KeyD","KeyR","KeyZ","Space",
-                "w","a","s","d","r","z"," "
-            ]);
 
             function panelInputFocused() {
                 var el = document.activeElement;
@@ -569,20 +564,15 @@
 
             window.addEventListener("keydown", function (e) {
                 if (!panelInputFocused()) return;
-                // Always let through modifier combos (Ctrl+Z, Ctrl+S, etc.)
-                if (e.ctrlKey || e.metaKey || e.altKey) return;
-                // Block game movement/action keys
-                if (GAME_KEYS.has(e.key) || GAME_KEYS.has(e.code)) {
-                    e.stopPropagation();
-                }
+                // Let modifier combos through for TAS shortcuts (Ctrl+Z, Ctrl+S, etc.)
+                if (e.ctrlKey || e.metaKey) return;
+                e.stopPropagation();
             }, true);
 
             window.addEventListener("keyup", function (e) {
                 if (!panelInputFocused()) return;
-                if (e.ctrlKey || e.metaKey || e.altKey) return;
-                if (GAME_KEYS.has(e.key) || GAME_KEYS.has(e.code)) {
-                    e.stopPropagation();
-                }
+                if (e.ctrlKey || e.metaKey) return;
+                e.stopPropagation();
             }, true);
         })();
         (function () {
