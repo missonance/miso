@@ -56354,6 +56354,9 @@
 // TAS 0.6.0 — Native Rf Hook (injected inline, same scope as uf/df/ff/pf/gf/C)
 // ═══════════════════════════════════════════════════════════════════════════════
 (function __tasRfHook() {
+  // Expose C on window so the TAS patch's patchCHelper() can find and wrap it.
+  // C is the private-field accessor helper used throughout the game classes.
+  window.__tasC = C;
   // ── Hook xa.set: main game ghost storage ─────────────────────────────────
   // During active gameplay ghosts live in xa (WeakMap on the main game inst).
   // Hooking xa.set lets us expose the same __tasGhostProxy so that
@@ -57803,8 +57806,12 @@
    * the ghost proxy can't be obtained.
    */
   function patchCHelper() {
-    // Locate the `C` helper by searching the global scope for an object with
-    // .get and .set methods whose .toString() matches the private accessor pattern.
+    // First try the C we exposed directly from __tasRfHook
+    if (window.__tasC) {
+      installCWrap(window.__tasC);
+      return true;
+    }
+    // Fallback: search window for the C helper
     for (const key of Object.getOwnPropertyNames(window)) {
       try {
         const val = window[key];
