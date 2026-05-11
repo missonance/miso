@@ -145,6 +145,7 @@
         <button id="copy">Copy</button>
         <button id="clear">Clear</button>
         <button id="apply">Apply</button>
+        <button id="apply-restart">Apply & Restart</button>
       </div>
     </div>
   </main>
@@ -865,6 +866,14 @@ var $ = function(id){ return document.getElementById(id); };
           window.electron.tasToolApply(t);
         } catch (e2) {}
       }
+    };
+
+    $("apply-restart").onclick = function() {
+      $("apply").click();
+      setTimeout(function() {
+        var e = new KeyboardEvent("keydown", { key: "Backspace", code: "Backspace", keyCode: 8, bubbles: true, cancelable: true });
+        document.dispatchEvent(e);
+      }, 80);
     };
 
     // Scroll helpers for decoded editor
