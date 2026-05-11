@@ -874,16 +874,21 @@ var $ = function(id){ return document.getElementById(id); };
       setTimeout(function() {
         try {
           var proxy = window.__tasGhostProxy;
-          if (!proxy) return;
+          console.log('[TAS] proxy:', proxy);
+          console.log('[TAS] rec:', window.__tasLastRecordingObj);
+          if (!proxy) { console.log('[TAS] no proxy!'); return; }
           var rec = window.__tasLastRecordingObj;
           if (proxy.relaunch) {
-            // Replay viewer — update the selected ghost's recording then relaunch
             var settings = proxy.ghosts.map(function(g) { return g.settings; });
             var idx = proxy.getSelIdx ? proxy.getSelIdx() : 0;
+            console.log('[TAS] idx:', idx, 'settings before:', JSON.stringify(settings[idx]));
             if (rec) settings[idx] = Object.assign({}, settings[idx], { recording: rec });
+            console.log('[TAS] settings after:', settings[idx], 'recording:', settings[idx].recording);
             proxy.relaunch(settings);
           } else if (proxy.respawnGhost && rec) {
             proxy.respawnGhost(0, rec);
+          } else {
+            console.log('[TAS] no relaunch or respawnGhost on proxy');
           }
         } catch(e) { console.error("[TAS] apply-restart error:", e); }
       }, 80);
