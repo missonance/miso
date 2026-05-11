@@ -528,10 +528,8 @@
                     try { fn(recordingObj); } catch(e) {}
                     setTimeout(function() {
                         try {
-                            var proxy = window.__tasGhostProxy;
-                            if (proxy && proxy.startNewRun) {
-                                proxy.startNewRun();
-                            }
+                            var backBtn = document.querySelector('.button.back');
+                            if (backBtn) backBtn.click();
                         } catch(e) { console.error('[TAS] apply error:', e); }
                     }, 50);
                 });
