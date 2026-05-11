@@ -528,8 +528,17 @@
                     try { fn(recordingObj); } catch(e) {}
                     setTimeout(function() {
                         try {
-                            var backBtn = document.querySelector('.button.back');
-                            if (backBtn) backBtn.click();
+                            var proxy = window.__tasGhostProxy;
+                            if (proxy && proxy.setRecording) {
+                                // Active gameplay — just update the recording;
+                                // the game's Ya() loop rebuilds the ghost next frame.
+                                proxy.setRecording(0, recordingObj);
+                            } else {
+                                // Replay viewer — click the back button to exit
+                                // and start a fresh run with the new recording.
+                                var backBtn = document.querySelector('.button.back');
+                                if (backBtn) backBtn.click();
+                            }
                         } catch(e) { console.error('[TAS] apply error:', e); }
                     }, 50);
                 });
