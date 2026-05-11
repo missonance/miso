@@ -518,6 +518,7 @@
                         // bundle's ipcApplyHandler can call .serialize() on it directly,
                         // bypassing its broken window scan for the Recording class.
                         var recordingObj = { serialize: function() { return encoded; } };
+                        window.__tasLastRecordingObj = recordingObj;
                         _applyListeners.forEach(function(fn){ try{fn(recordingObj);}catch(e){} });
                     } catch(e) {}
                 })();
@@ -873,14 +874,10 @@ var $ = function(id){ return document.getElementById(id); };
       setTimeout(function() {
         try {
           var proxy = window.__tasGhostProxy;
-          if (proxy && proxy.startReset) {
-            proxy.startReset();
-          } else {
-            // fallback
-            var e = new KeyboardEvent("keydown", { key: "Backspace", code: "Backspace", keyCode: 8, bubbles: true, cancelable: true });
-            document.dispatchEvent(e);
+          if (proxy && proxy.respawnGhost) {
+            proxy.respawnGhost(0, window.__tasLastRecordingObj);
           }
-        } catch(e) {}
+        } catch(e) { console.error("[TAS] apply-restart error:", e); }
       }, 80);
     };
 
