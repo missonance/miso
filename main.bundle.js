@@ -56354,6 +56354,33 @@
 // TAS 0.6.0 — Native Rf Hook (injected inline, same scope as uf/df/ff/pf/gf/C)
 // ═══════════════════════════════════════════════════════════════════════════════
 (function __tasRfHook() {
+  // ── Hook xa.set: main game ghost storage ─────────────────────────────────
+  // During active gameplay ghosts live in xa (WeakMap on the main game inst).
+  // Hooking xa.set lets us expose the same __tasGhostProxy so that
+  // onTasToolApply can just set ghost.settings.recording and the game's own
+  // Ya() update loop will rebuild the car automatically next frame.
+  var _xaSetOrig = xa.set.bind(xa);
+  xa.set = function(gameInst, value) {
+    _xaSetOrig(gameInst, value);
+    // xa is initialised to [] and then populated — watch for a non-empty push
+    // by also wrapping array mutation via a Proxy so we catch the first push.
+    if (Array.isArray(value)) {
+      var _origPush = value.push.bind(value);
+      value.push = function(ghost) {
+        var ret = _origPush(ghost);
+        window.__tasGhostProxy = {
+          ghosts: value,
+          // In gameplay mode we only need to set recording; Ya() does the rest.
+          setRecording: function(idx, recordingObj) {
+            var g = value[idx != null ? idx : 0];
+            if (g) g.settings.recording = recordingObj;
+          },
+        };
+        return ret;
+      };
+    }
+  };
+
   // Wrap uf.set to intercept when Rf stores its ghosts array.
   // At this point uf, df, ff, pf, gf, C are all in scope.
   var _ufSetOrig = uf.set.bind(uf);
