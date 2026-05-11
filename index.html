@@ -520,6 +520,12 @@
                         var recordingObj = { serialize: function() { return encoded; } };
                         window.__tasLastRecordingObj = recordingObj;
                         _applyListeners.forEach(function(fn){ try{fn(recordingObj);}catch(e){} });
+                        // Fire any one-shot post-apply callback (used by Apply & Restart)
+                        if (typeof window.__tasAfterApply === 'function') {
+                            var cb = window.__tasAfterApply;
+                            window.__tasAfterApply = null;
+                            cb(recordingObj);
+                        }
                     } catch(e) {}
                 })();
             },
@@ -870,25 +876,20 @@ var $ = function(id){ return document.getElementById(id); };
     };
 
     $("apply-restart").onclick = function() {
-      $("apply").click();
-      setTimeout(function() {
+      window.__tasAfterApply = function(rec) {
         try {
-          var rec = window.__tasLastRecordingObj;
-          if (!rec) { console.log('[TAS] no recording to apply'); return; }
           var proxy = window.__tasGhostProxy;
           if (proxy && proxy.relaunch) {
-            // In replay viewer — patch the selected ghost's recording and relaunch
             var settings = proxy.ghosts.map(function(g) { return g.settings; });
             var idx = proxy.getSelIdx ? proxy.getSelIdx() : 0;
             settings[idx] = Object.assign({}, settings[idx], { recording: rec });
             proxy.relaunch(settings);
           } else {
-            // Not in replay viewer — store for pickup when next run starts
             window.__tasPendingRecording = rec;
-            console.log('[TAS] pending recording set, will apply on next run start');
           }
         } catch(e) { console.error("[TAS] apply-restart error:", e); }
-      }, 80);
+      };
+      $("apply").click();
     };
 
     // Scroll helpers for decoded editor
