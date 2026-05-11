@@ -57855,6 +57855,17 @@
             try { return Math.max(m, g.replay.getLastFrame().numberOfFrames); } catch { return m; }
           }, 0),
           isPaused: () => _paused,
+          relaunch: function(newSettings) {
+            try {
+              var rfInst = obj;
+              var u = C.get(rfInst, hf, 'f');
+              var n = C.get(rfInst, ef, 'f');
+              var i = C.get(rfInst, tf, 'f');
+              var r = C.get(rfInst, nf, 'f');
+              var settings = newSettings || ghosts.map(function(g) { return g.settings; });
+              u(n, i, r, settings);
+            } catch(e) { console.error('[TAS] relaunch error:', e); }
+          },
         };
 
         // Also intercept subsequent ff (frame time) writes via the same obj
