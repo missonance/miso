@@ -56356,195 +56356,68 @@
 (function __tasRfHook() {
   window.__tasC = C;
 
-  // ── Hook uf.get to detect when Rf reads its ghosts array ─────────────────
-  // C.set is read-only and C is closed over so we can't intercept C.set.
-  // But uf is a plain WeakMap — we CAN wrap its get() method.
-  // Rf calls C.get(this, uf, 'f') → uf.get(this) every frame to read ghosts.
-  // We intercept the first call per rfInst to set up the proxy.
-  var _ufGetOrig = uf.get.bind(uf);
+  // ── Proxy-wrap uf (Rf ghosts WeakMap) ────────────────────────────────────
+  var _ufReal = uf;
   var _proxiedInsts = new WeakSet();
-  uf.get = function(rfInst) {
-    var value = _ufGetOrig(rfInst);
-    if (value && Array.isArray(value) && value.length > 0 && !_proxiedInsts.has(rfInst)) {
-      _proxiedInsts.add(rfInst);
-      window.__tasGhostProxy = {
-        ghosts: value,
-        getSelIdx: function() { try { return C.get(rfInst, df, 'f') || 0; } catch(e) { return 0; } },
-        relaunch: function(newSettings) {
-          try {
-            var u = C.get(rfInst, hf, 'f');
-            var n = C.get(rfInst, ef, 'f');
-            var i = C.get(rfInst, tf, 'f');
-            var r = C.get(rfInst, nf, 'f');
-            var settings = newSettings || value.map(function(g) { return g.settings; });
-            console.log('[TAS] relaunch firing', settings);
-            u(n, i, r, settings);
-          } catch(e) { console.error('[TAS] relaunch error:', e); }
-        },
-      };
-      console.log('[TAS] __tasGhostProxy set with', value.length, 'ghosts');
-    }
-    return value;
-  };
-  // ── Hook xa.set: main game ghost storage ─────────────────────────────────
-  // During active gameplay ghosts live in xa (WeakMap on the main game inst).
-  // Hooking xa.set lets us expose the same __tasGhostProxy so that
-  // onTasToolApply can just set ghost.settings.recording and the game's own
-  // Ya() update loop will rebuild the car automatically next frame.
-  var _xaSetOrig = xa.set.bind(xa);
-  xa.set = function(gameInst, value) {
-    _xaSetOrig(gameInst, value);
-    // xa is initialised to [] and then populated — watch for a non-empty push
-    // by also wrapping array mutation via a Proxy so we catch the first push.
-    if (Array.isArray(value)) {
-      var _origPush = value.push.bind(value);
-      value.push = function(ghost) {
-        var ret = _origPush(ghost);
-      window.__tasGhostProxy = {
-          ghosts: value,
-          setRecording: function(idx, recordingObj) {
-              var g = value[idx != null ? idx : 0];
-              if (g) g.settings.recording = recordingObj;
-          },
-          startReset: function() {
-              try { C.get(gameInst, _r, "m", Qa).call(gameInst); } catch(e) {}
-          },
-          respawnGhost: function(idx, recordingObj) {
+  uf = new Proxy(_ufReal, {
+    get: function(target, prop) {
+      if (prop !== 'get') return target[prop];
+      return function(rfInst) {
+        var value = target.get(rfInst);
+        if (value && Array.isArray(value) && value.length > 0 && !_proxiedInsts.has(rfInst)) {
+          _proxiedInsts.add(rfInst);
+          window.__tasGhostProxy = {
+            ghosts: value,
+            getSelIdx: function() { try { return C.get(rfInst, df, 'f') || 0; } catch(e) { return 0; } },
+            relaunch: function(newSettings) {
               try {
-                  var g = value[idx != null ? idx : 0];
-                  if (!g) return;
-                  // Update the recording
-                  g.settings.recording = recordingObj;
-                  // Null replay so Ya() re-simulates from scratch
-                  if (g.carId != null) {
-                      try { C.get(gameInst, Rr, "f").deleteCar(g.carId); } catch(e) {}
-                      g.carId = null;
-                  }
-                  g.replay = null;
-                  // Call Ya() directly to spawn the new ghost immediately
-                  C.get(gameInst, _r, "m", Ya).call(gameInst);
-              } catch(e) { console.error("[TAS] respawnGhost error:", e); }
-          },
-      };
-        return ret;
-      };
-    }
-  };
-
-  // Wrap uf.set to intercept when Rf stores its ghosts array.
-  // At this point uf, df, ff, pf, gf, C are all in scope.
-  var _ufSetOrig = uf.set.bind(uf);
-  uf.set = function(rfInst, value) {
-    // If there's a pending recording swap, apply it to the selected ghost's
-    // settings NOW — before Rf uses them to simulate the physics car.
-    if (window.__tasPendingRecording && Array.isArray(value) && value.length > 0) {
-      var selIdx = df.get(rfInst) || 0;
-      if (value[selIdx]) {
-        value[selIdx].settings = Object.assign({}, value[selIdx].settings, {
-          recording: window.__tasPendingRecording
-        });
-      }
-      window.__tasPendingRecording = null;
-    }
-    _ufSetOrig(rfInst, value);
-    if (
-      Array.isArray(value) && value.length > 0 &&
-      value[0] && value[0].car && value[0].replay && value[0].settings
-    ) {
-      // Rf just stored its ghosts — expose a proxy for the TAS patch
-      window.__tasGhostProxy = {
-        ghosts: value,
-        getSelIdx:    function() { return df.get(rfInst) || 0; },
-        setSelIdx:    function(i) { df.set(rfInst, i); },
-        getFrameMs:   function() { return Math.round(1e3 * (ff.get(rfInst) || 0)); },
-        setFrameMs:   function(ms) { ff.set(rfInst, ms / 1e3); },
-        getMaxMs:     function() { return Math.round(1e3 * (gf.get(rfInst) || 0)); },
-        isPaused:     function() { return !!(pf.get(rfInst)); },
-        getCarForIdx: function(i) { return value[i] ? value[i].car : null; },
-        relaunch: function(newSettings) {
-          // Calls the same u() callback that Escape triggers in Rf,
-          // which tears down the replay and starts a fresh run.
-          try {
-            var u = C.get(rfInst, hf, 'f');
-            var n = C.get(rfInst, ef, 'f');
-            var i = C.get(rfInst, tf, 'f');
-            var r = C.get(rfInst, nf, 'f');
-            var settings = newSettings || value.map(function(e) { return e.settings; });
-            u(n, i, r, settings);
-          } catch(e) { console.error('[TAS] relaunch error:', e); }
-        },
-        rebuildGhost: function(idx, newRecordingObj) {
-          try {
-            var ghost = value[idx];
-            if (!ghost) return;
-            var physicsEngine = C.get(rfInst, Zp, 'f');
-            var trackData     = C.get(rfInst, tf, 'f');
-            var mountainMgr   = C.get(rfInst, nf, 'f');
-            var maxFrames     = gf.get(rfInst) || 0;
-            var maxTime       = new yt.A(Math.round(maxFrames * 1e3));
-            var startTransform = trackData.getStartTransform();
-            if (!startTransform) return;
-            // Delete the old physics car
-            if (ghost.carId != null) {
-              physicsEngine.deleteCar(ghost.carId);
-              ghost.carId = null;
-            }
-            // Clear the old replay frames and update the recording
-            ghost.replay = new Ft();
-            ghost.settings.recording = newRecordingObj;
-            // Re-simulate with the new recording
-            var newCar = physicsEngine.createCar(
-              startTransform,
-              mountainMgr.getMountainVertices(),
-              mountainMgr.getMountainOffset(),
-              trackData,
-              newRecordingObj,
-              function(state) {
-                ghost.replay.push(state);
-                if (ghost.carId != null && state.frames >= Math.round(maxFrames * 1e3)) {
-                  physicsEngine.deleteCar(ghost.carId);
-                  ghost.carId = null;
-                }
-              }
-            );
-            ghost.replay.push(newCar.carState);
-            physicsEngine.startCar(newCar.id, maxTime.clone());
-            ghost.carId = newCar.id;
-            // Rewind playback to start so the new replay is visible immediately
-            ff.set(rfInst, 0);
-          } catch(e) {
-            console.error('[TAS] rebuildGhost error:', e);
-          }
-        },
-        startNewRun: function() {
-          try {
-            var hfFn = C.get(rfInst, hf, 'f');
-            var physEngine = C.get(rfInst, Zp, 'f');
-            var trackData  = C.get(rfInst, tf, 'f');
-            var mountainMgr = C.get(rfInst, nf, 'f');
-            hfFn.call(rfInst, physEngine, trackData, mountainMgr, value.map(function(e) { return e.settings; }));
-          } catch(e) {
-            console.error('[TAS] startNewRun error:', e);
-          }
-        },
-      };
-      // Signal the TAS patch (attached at page bottom) to create its session.
-      // It polls via MutationObserver + attemptSessionFromDom(); a small timeout
-      // after the toolbar appears is enough. We fire a synthetic DOM mutation by
-      // briefly adding/removing a sentinel node so the observer fires immediately.
-      setTimeout(function() {
-        var ui = document.getElementById('ui');
-        if (ui) {
-          var sentinel = document.createElement('div');
-          sentinel.id = '__tas-hook-sentinel';
-          ui.appendChild(sentinel);
-          ui.removeChild(sentinel);
+                var u = C.get(rfInst, hf, 'f');
+                var n = C.get(rfInst, ef, 'f');
+                var i = C.get(rfInst, tf, 'f');
+                var r = C.get(rfInst, nf, 'f');
+                var settings = newSettings || value.map(function(g) { return g.settings; });
+                console.log('[TAS] relaunch firing', settings);
+                u(n, i, r, settings);
+              } catch(e) { console.error('[TAS] relaunch error:', e); }
+            },
+          };
+          console.log('[TAS] __tasGhostProxy set with', value.length, 'ghosts');
         }
-      }, 60);
+        return value;
+      };
     }
-    return uf;
-  };
+  });
+
+  // ── Proxy-wrap xa (main game ghosts WeakMap) ─────────────────────────────
+  var _xaReal = xa;
+  xa = new Proxy(_xaReal, {
+    get: function(target, prop) {
+      if (prop !== 'set') return target[prop];
+      return function(gameInst, value) {
+        target.set(gameInst, value);
+        if (Array.isArray(value)) {
+          var _origPush = value.push.bind(value);
+          value.push = function(ghost) {
+            var ret = _origPush(ghost);
+            window.__tasGhostProxy = {
+              ghosts: value,
+              setRecording: function(idx, recordingObj) {
+                var g = value[idx != null ? idx : 0];
+                if (g) g.settings.recording = recordingObj;
+              },
+              startReset: function() {
+                try { C.get(gameInst, _r, 'm', Qa).call(gameInst); } catch(e) {}
+              },
+            };
+            return ret;
+          };
+        }
+      };
+    }
+  });
+  // ── Hook j() to inject pending recording on relaunch ─────────────────────
 })();
+
 // ═══════════════════════════════════════════════════════════════════════════════
 
         var Pf, If;
