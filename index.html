@@ -871,8 +871,16 @@ var $ = function(id){ return document.getElementById(id); };
     $("apply-restart").onclick = function() {
       $("apply").click();
       setTimeout(function() {
-        var e = new KeyboardEvent("keydown", { key: "Backspace", code: "Backspace", keyCode: 8, bubbles: true, cancelable: true });
-        document.dispatchEvent(e);
+        try {
+          var proxy = window.__tasGhostProxy;
+          if (proxy && proxy.startReset) {
+            proxy.startReset();
+          } else {
+            // fallback
+            var e = new KeyboardEvent("keydown", { key: "Backspace", code: "Backspace", keyCode: 8, bubbles: true, cancelable: true });
+            document.dispatchEvent(e);
+          }
+        } catch(e) {}
       }, 80);
     };
 
