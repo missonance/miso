@@ -56376,8 +56376,9 @@
                 var i = C.get(rfInst, tf, 'f');
                 var r = C.get(rfInst, nf, 'f');
                 var settings = newSettings || value.map(function(g) { return g.settings; });
-                console.log('[TAS] relaunch firing', settings);
+                console.log('[TAS] relaunch called. u=', u, 'settings[0].recording=', settings[0] && settings[0].recording);
                 u(n, i, r, settings);
+                console.log('[TAS] relaunch u() returned');
               } catch(e) { console.error('[TAS] relaunch error:', e); }
             },
           };
