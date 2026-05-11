@@ -56354,9 +56354,35 @@
 // TAS 0.6.0 — Native Rf Hook (injected inline, same scope as uf/df/ff/pf/gf/C)
 // ═══════════════════════════════════════════════════════════════════════════════
 (function __tasRfHook() {
-  // Expose C on window so the TAS patch's patchCHelper() can find and wrap it.
-  // C is the private-field accessor helper used throughout the game classes.
   window.__tasC = C;
+
+  // ── Intercept C.set to catch Rf storing the ghosts array via uf ──────────
+  // The bundle calls C.set(rfInst, uf, ghostsArray, 'f') which bypasses our
+  // uf.set hook entirely. Wrap C.set here where C is in scope.
+  var _cSetOrig = C.set.bind(C);
+  C.set = function(obj, wm, value, qualifier) {
+    // Detect the ghosts array: stored in uf WeakMap, array of ghost objects
+    if (wm === uf && Array.isArray(value) && value.length > 0) {
+      var rfInst = obj;
+      window.__tasGhostProxy = {
+        ghosts: value,
+        getSelIdx: function() { try { return C.get(rfInst, df, 'f') || 0; } catch(e) { return 0; } },
+        relaunch: function(newSettings) {
+          try {
+            var u = C.get(rfInst, hf, 'f');
+            var n = C.get(rfInst, ef, 'f');
+            var i = C.get(rfInst, tf, 'f');
+            var r = C.get(rfInst, nf, 'f');
+            var settings = newSettings || value.map(function(g) { return g.settings; });
+            console.log('[TAS] relaunch firing u()', u, settings);
+            u(n, i, r, settings);
+          } catch(e) { console.error('[TAS] relaunch error:', e); }
+        },
+      };
+      console.log('[TAS] __tasGhostProxy set with', value.length, 'ghosts');
+    }
+    return _cSetOrig(obj, wm, value, qualifier);
+  };
   // ── Hook xa.set: main game ghost storage ─────────────────────────────────
   // During active gameplay ghosts live in xa (WeakMap on the main game inst).
   // Hooking xa.set lets us expose the same __tasGhostProxy so that
