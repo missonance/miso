@@ -874,8 +874,16 @@ var $ = function(id){ return document.getElementById(id); };
       setTimeout(function() {
         try {
           var proxy = window.__tasGhostProxy;
-          if (proxy && proxy.respawnGhost) {
-            proxy.respawnGhost(0, window.__tasLastRecordingObj);
+          if (!proxy) return;
+          var rec = window.__tasLastRecordingObj;
+          if (proxy.relaunch) {
+            // Replay viewer — update the selected ghost's recording then relaunch
+            var settings = proxy.ghosts.map(function(g) { return g.settings; });
+            var idx = proxy.getSelIdx ? proxy.getSelIdx() : 0;
+            if (rec) settings[idx] = Object.assign({}, settings[idx], { recording: rec });
+            proxy.relaunch(settings);
+          } else if (proxy.respawnGhost && rec) {
+            proxy.respawnGhost(0, rec);
           }
         } catch(e) { console.error("[TAS] apply-restart error:", e); }
       }, 80);
