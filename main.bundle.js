@@ -56403,6 +56403,17 @@
   // At this point uf, df, ff, pf, gf, C are all in scope.
   var _ufSetOrig = uf.set.bind(uf);
   uf.set = function(rfInst, value) {
+    // If there's a pending recording swap, apply it to the selected ghost's
+    // settings NOW — before Rf uses them to simulate the physics car.
+    if (window.__tasPendingRecording && Array.isArray(value) && value.length > 0) {
+      var selIdx = df.get(rfInst) || 0;
+      if (value[selIdx]) {
+        value[selIdx].settings = Object.assign({}, value[selIdx].settings, {
+          recording: window.__tasPendingRecording
+        });
+      }
+      window.__tasPendingRecording = null;
+    }
     _ufSetOrig(rfInst, value);
     if (
       Array.isArray(value) && value.length > 0 &&
@@ -56849,6 +56860,14 @@
                 ))))
             }
               , j = (e, t, n, i) => {
+                // Inject pending recording before Rf re-simulates ghosts
+                if (window.__tasPendingRecording && Array.isArray(i) && i.length > 0) {
+                  var _rec = window.__tasPendingRecording;
+                  window.__tasPendingRecording = null;
+                  i = i.map(function(s, idx) {
+                    return idx === 0 ? Object.assign({}, s, { recording: _rec }) : s;
+                  });
+                }
                 o.trigger(( () => {
                     P.pS(),
                     Q.dispose(),
