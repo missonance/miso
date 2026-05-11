@@ -879,12 +879,15 @@ var $ = function(id){ return document.getElementById(id); };
       window.__tasAfterApply = function(rec) {
         try {
           var proxy = window.__tasGhostProxy;
+          console.log('[TAS] afterApply: proxy=', proxy, 'rec=', rec);
           if (proxy && proxy.relaunch) {
             var settings = proxy.ghosts.map(function(g) { return g.settings; });
             var idx = proxy.getSelIdx ? proxy.getSelIdx() : 0;
+            console.log('[TAS] calling relaunch, idx=', idx);
             settings[idx] = Object.assign({}, settings[idx], { recording: rec });
             proxy.relaunch(settings);
           } else {
+            console.log('[TAS] no proxy.relaunch, using pending');
             window.__tasPendingRecording = rec;
           }
         } catch(e) { console.error("[TAS] apply-restart error:", e); }
