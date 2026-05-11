@@ -56356,14 +56356,17 @@
 (function __tasRfHook() {
   window.__tasC = C;
 
-  // ── Intercept C.set to catch Rf storing the ghosts array via uf ──────────
-  // The bundle calls C.set(rfInst, uf, ghostsArray, 'f') which bypasses our
-  // uf.set hook entirely. Wrap C.set here where C is in scope.
-  var _cSetOrig = C.set.bind(C);
-  C.set = function(obj, wm, value, qualifier) {
-    // Detect the ghosts array: stored in uf WeakMap, array of ghost objects
-    if (wm === uf && Array.isArray(value) && value.length > 0) {
-      var rfInst = obj;
+  // ── Hook uf.get to detect when Rf reads its ghosts array ─────────────────
+  // C.set is read-only and C is closed over so we can't intercept C.set.
+  // But uf is a plain WeakMap — we CAN wrap its get() method.
+  // Rf calls C.get(this, uf, 'f') → uf.get(this) every frame to read ghosts.
+  // We intercept the first call per rfInst to set up the proxy.
+  var _ufGetOrig = uf.get.bind(uf);
+  var _proxiedInsts = new WeakSet();
+  uf.get = function(rfInst) {
+    var value = _ufGetOrig(rfInst);
+    if (value && Array.isArray(value) && value.length > 0 && !_proxiedInsts.has(rfInst)) {
+      _proxiedInsts.add(rfInst);
       window.__tasGhostProxy = {
         ghosts: value,
         getSelIdx: function() { try { return C.get(rfInst, df, 'f') || 0; } catch(e) { return 0; } },
@@ -56374,14 +56377,14 @@
             var i = C.get(rfInst, tf, 'f');
             var r = C.get(rfInst, nf, 'f');
             var settings = newSettings || value.map(function(g) { return g.settings; });
-            console.log('[TAS] relaunch firing u()', u, settings);
+            console.log('[TAS] relaunch firing', settings);
             u(n, i, r, settings);
           } catch(e) { console.error('[TAS] relaunch error:', e); }
         },
       };
       console.log('[TAS] __tasGhostProxy set with', value.length, 'ghosts');
     }
-    return _cSetOrig(obj, wm, value, qualifier);
+    return value;
   };
   // ── Hook xa.set: main game ghost storage ─────────────────────────────────
   // During active gameplay ghosts live in xa (WeakMap on the main game inst).
