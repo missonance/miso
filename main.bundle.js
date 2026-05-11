@@ -57858,11 +57858,14 @@
           relaunch: function(newSettings) {
             try {
               var rfInst = obj;
+              console.log('[TAS] relaunch called, rfInst:', rfInst);
               var u = C.get(rfInst, hf, 'f');
+              console.log('[TAS] u:', u);
               var n = C.get(rfInst, ef, 'f');
               var i = C.get(rfInst, tf, 'f');
               var r = C.get(rfInst, nf, 'f');
               var settings = newSettings || ghosts.map(function(g) { return g.settings; });
+              console.log('[TAS] calling u with settings:', settings);
               u(n, i, r, settings);
             } catch(e) { console.error('[TAS] relaunch error:', e); }
           },
