@@ -875,15 +875,16 @@ var $ = function(id){ return document.getElementById(id); };
         try {
           var rec = window.__tasLastRecordingObj;
           if (!rec) { console.log('[TAS] no recording to apply'); return; }
-          // Store for pickup by the j() wrapper in main_bundle.js
-          window.__tasPendingRecording = rec;
           var proxy = window.__tasGhostProxy;
           if (proxy && proxy.relaunch) {
-            // Already in replay viewer — relaunch immediately
-            proxy.relaunch();
+            // In replay viewer — patch the selected ghost's recording and relaunch
+            var settings = proxy.ghosts.map(function(g) { return g.settings; });
+            var idx = proxy.getSelIdx ? proxy.getSelIdx() : 0;
+            settings[idx] = Object.assign({}, settings[idx], { recording: rec });
+            proxy.relaunch(settings);
           } else {
-            // On track info screen — pending recording will be picked up
-            // when the user clicks Play and Rf is constructed
+            // Not in replay viewer — store for pickup when next run starts
+            window.__tasPendingRecording = rec;
             console.log('[TAS] pending recording set, will apply on next run start');
           }
         } catch(e) { console.error("[TAS] apply-restart error:", e); }
