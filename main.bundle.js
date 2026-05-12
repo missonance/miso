@@ -56356,78 +56356,32 @@
 (function __tasRfHook() {
   window.__tasC = C;
 
-  // ── Proxy-wrap uf (Rf ghosts WeakMap) ────────────────────────────────────
-  var _ufReal = uf;
-  uf = new Proxy(_ufReal, {
-    get: function(target, prop) {
-      if (prop !== 'get') {
-        var v = target[prop];
-        return typeof v === 'function' ? v.bind(target) : v;
+  // ── Subclass uf WeakMap to intercept get() without breaking C's type checks ─
+  class TasUfWeakMap extends WeakMap {
+    get(rfInst) {
+      var value = super.get(rfInst);
+      if (value && Array.isArray(value) && value.length > 0) {
+        window.__tasRelaunch = function(newSettings) {
+          try {
+            var u = C.get(rfInst, hf, 'f');
+            var n = C.get(rfInst, ef, 'f');
+            var i = C.get(rfInst, tf, 'f');
+            var r = C.get(rfInst, nf, 'f');
+            var s = newSettings || value.map(function(g) { return g.settings; });
+            console.log('[TAS] __tasRelaunch firing, recording:', s[0] && s[0].recording);
+            u(n, i, r, s);
+          } catch(e) { console.error('[TAS] relaunch error:', e); }
+        };
+        window.__tasGetGhosts = function() { return value; };
       }
-      return function(rfInst) {
-        var value = target.get(rfInst);
-        if (value && Array.isArray(value) && value.length > 0) {
-          // Always keep __tasRelaunch up to date — unlike __tasGhostProxy
-          // this won't be cleared by attemptSessionFromDom.
-          window.__tasRelaunch = function(newSettings) {
-            try {
-              var u = C.get(rfInst, hf, 'f');
-              var n = C.get(rfInst, ef, 'f');
-              var i = C.get(rfInst, tf, 'f');
-              var r = C.get(rfInst, nf, 'f');
-              var s = newSettings || value.map(function(g) { return g.settings; });
-              console.log('[TAS] __tasRelaunch firing, recording:', s[0] && s[0].recording);
-              u(n, i, r, s);
-            } catch(e) { console.error('[TAS] relaunch error:', e); }
-          };
-          window.__tasGetGhosts = function() { return value; };
-          // Also set __tasGhostProxy for the session (will be cleared by attemptSessionFromDom)
-          window.__tasGhostProxy = {
-            ghosts: value,
-            getSelIdx: function() { try { return C.get(rfInst, df, 'f') || 0; } catch(e) { return 0; } },
-            setSelIdx: function(i) { try { C.set(rfInst, df, i, 'f'); } catch(e) {} },
-            getFrameMs: function() { try { return C.get(rfInst, ff, 'f') * 1000; } catch(e) { return 0; } },
-            setFrameMs: function(ms) { try { C.set(rfInst, ff, ms / 1000, 'f'); } catch(e) {} },
-            getMaxMs: function() { try { return C.get(rfInst, gf, 'f') * 1000; } catch(e) { return 0; } },
-            isPaused: function() { try { return !!C.get(rfInst, pf, 'f'); } catch(e) { return false; } },
-            relaunch: function(newSettings) { window.__tasRelaunch(newSettings); },
-          };
-        }
-        return value;
-      };
+      return value;
     }
-  });
-
-  // ── Proxy-wrap xa (main game ghosts WeakMap) ─────────────────────────────
-  var _xaReal = xa;
-  xa = new Proxy(_xaReal, {
-    get: function(target, prop) {
-      if (prop !== 'set') {
-        var v = target[prop];
-        return typeof v === 'function' ? v.bind(target) : v;
-      }
-      return function(gameInst, value) {
-        target.set(gameInst, value);
-        if (Array.isArray(value)) {
-          var _origPush = value.push.bind(value);
-          value.push = function(ghost) {
-            var ret = _origPush(ghost);
-            window.__tasGhostProxy = {
-              ghosts: value,
-              setRecording: function(idx, recordingObj) {
-                var g = value[idx != null ? idx : 0];
-                if (g) g.settings.recording = recordingObj;
-              },
-              startReset: function() {
-                try { C.get(gameInst, _r, 'm', Qa).call(gameInst); } catch(e) {}
-              },
-            };
-            return ret;
-          };
-        }
-      };
-    }
-  });
+  }
+  // Copy existing entries from uf into our subclass instance
+  var _ufNew = new TasUfWeakMap();
+  // WeakMap entries aren't enumerable so we can't copy them,
+  // but uf is empty at this point (Rf not yet instantiated), so just swap it.
+  uf = _ufNew;
   // ── Hook j() to inject pending recording on relaunch ─────────────────────
 })();
 
