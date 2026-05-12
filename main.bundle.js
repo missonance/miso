@@ -56712,6 +56712,16 @@
                   j(e, t, n, newSettings || i);
                 };
                 window.__tasGetGhosts = function() { return i; };
+                // Set __tasGhostProxy so attemptSessionFromDom creates the TAS session
+                window.__tasGhostProxy = {
+                  ghosts: i,
+                  getSelIdx: function() { return 0; },
+                  setSelIdx: function() {},
+                  getFrameMs: function() { return 0; },
+                  setFrameMs: function() {},
+                  getMaxMs: function() { return i && i[0] && i[0].settings && i[0].settings.frames ? i[0].settings.frames : 0; },
+                  isPaused: function() { return false; },
+                };
                 // Inject pending recording before Rf re-simulates ghosts
                 if (window.__tasPendingRecording && Array.isArray(i) && i.length > 0) {
                   var _rec = window.__tasPendingRecording;
