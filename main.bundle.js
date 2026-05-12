@@ -56360,7 +56360,10 @@
   var _ufReal = uf;
   uf = new Proxy(_ufReal, {
     get: function(target, prop) {
-      if (prop !== 'get') return target[prop];
+      if (prop !== 'get') {
+        var v = target[prop];
+        return typeof v === 'function' ? v.bind(target) : v;
+      }
       return function(rfInst) {
         var value = target.get(rfInst);
         if (value && Array.isArray(value) && value.length > 0) {
@@ -56399,7 +56402,10 @@
   var _xaReal = xa;
   xa = new Proxy(_xaReal, {
     get: function(target, prop) {
-      if (prop !== 'set') return target[prop];
+      if (prop !== 'set') {
+        var v = target[prop];
+        return typeof v === 'function' ? v.bind(target) : v;
+      }
       return function(gameInst, value) {
         target.set(gameInst, value);
         if (Array.isArray(value)) {
