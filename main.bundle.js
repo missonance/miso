@@ -56356,32 +56356,7 @@
 (function __tasRfHook() {
   window.__tasC = C;
 
-  // ── Subclass uf WeakMap to intercept get() without breaking C's type checks ─
-  class TasUfWeakMap extends WeakMap {
-    get(rfInst) {
-      var value = super.get(rfInst);
-      if (value && Array.isArray(value) && value.length > 0) {
-        window.__tasRelaunch = function(newSettings) {
-          try {
-            var u = C.get(rfInst, hf, 'f');
-            var n = C.get(rfInst, ef, 'f');
-            var i = C.get(rfInst, tf, 'f');
-            var r = C.get(rfInst, nf, 'f');
-            var s = newSettings || value.map(function(g) { return g.settings; });
-            console.log('[TAS] __tasRelaunch firing, recording:', s[0] && s[0].recording);
-            u(n, i, r, s);
-          } catch(e) { console.error('[TAS] relaunch error:', e); }
-        };
-        window.__tasGetGhosts = function() { return value; };
-      }
-      return value;
-    }
-  }
-  // Copy existing entries from uf into our subclass instance
-  var _ufNew = new TasUfWeakMap();
-  // WeakMap entries aren't enumerable so we can't copy them,
-  // but uf is empty at this point (Rf not yet instantiated), so just swap it.
-  uf = _ufNew;
+  // No WeakMap patching — relaunch is captured directly in j() below.
   // ── Hook j() to inject pending recording on relaunch ─────────────────────
 })();
 
@@ -56732,6 +56707,11 @@
                 ))))
             }
               , j = (e, t, n, i) => {
+                // Store relaunch so Apply & Restart can trigger a fresh replay
+                window.__tasRelaunch = function(newSettings) {
+                  j(e, t, n, newSettings || i);
+                };
+                window.__tasGetGhosts = function() { return i; };
                 // Inject pending recording before Rf re-simulates ghosts
                 if (window.__tasPendingRecording && Array.isArray(i) && i.length > 0) {
                   var _rec = window.__tasPendingRecording;
